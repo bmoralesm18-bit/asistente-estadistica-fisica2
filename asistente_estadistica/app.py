@@ -1,3 +1,4 @@
+import html
 import math
 import random
 import re
@@ -7,16 +8,197 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from cycler import cycler
 
 # ---------------------------------------------------------------
 # DATOS DEL PROYECTO (cámbialos aquí cuando quieras)
 # ---------------------------------------------------------------
-NOMBRE_APP = "Asistente de Estadística para Física 2"
-INTEGRANTES = "Leonardo Morales y Carlos Gabriel Aquino Natareno"
+NOMBRE_APP = "FisiStat"
+SUBTITULO = (
+    "Asistente virtual de estadística aplicada para tus mediciones de laboratorio: "
+    "calcula, explica el procedimiento paso a paso y practica."
+)
+INTEGRANTES = "Brayan Leonardo Morales Moreno y Carlos Gabriel Aquino Natareno"
 ASIGNATURA = "Física 2"
 SECCION = "A"
 
-st.set_page_config(page_title=NOMBRE_APP, page_icon="📊")
+st.set_page_config(page_title=f"{NOMBRE_APP} · {ASIGNATURA}", page_icon="⚛️")
+
+# Colores de las gráficas (azul, rojo, turquesa, naranja, morado)
+plt.rcParams.update(
+    {
+        "axes.prop_cycle": cycler(color=["#1565c0", "#e53935", "#00acc1", "#fb8c00", "#6a1b9a"]),
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.grid": True,
+        "grid.alpha": 0.25,
+        "grid.linestyle": "--",
+        "axes.titleweight": "bold",
+        "axes.titlesize": 13,
+        "axes.labelsize": 11,
+        "legend.frameon": False,
+        "figure.dpi": 110,
+    }
+)
+
+
+# ---------------------------------------------------------------
+# ESTILO VISUAL (CSS). Los colores usan transparencias para que
+# se vean bien tanto en modo claro como en modo oscuro.
+# ---------------------------------------------------------------
+ESTILO = """
+<style>
+.block-container, [data-testid="stMainBlockContainer"] { padding-top: 1.6rem; max-width: 1050px; }
+footer { visibility: hidden; }
+
+@keyframes aparece { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Banner principal ---------- */
+.hero {
+  background-color: #0b3d91;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='560' height='240' viewBox='0 0 560 240'><g stroke='white' stroke-opacity='0.07' stroke-width='1'><path d='M0 40H560M0 80H560M0 120H560M0 160H560M0 200H560M70 0V240M140 0V240M210 0V240M280 0V240M350 0V240M420 0V240M490 0V240'/></g><path d='M0 120C47 20 93 20 140 120S233 220 280 120 373 20 420 120 513 220 560 120' fill='none' stroke='white' stroke-opacity='0.30' stroke-width='3'/><path d='M0 120C47 60 93 60 140 120S233 180 280 120 373 60 420 120 513 180 560 120' fill='none' stroke='white' stroke-opacity='0.16' stroke-width='2'/><path d='M300 225C360 225 380 40 430 40S500 225 560 225Z' fill='white' fill-opacity='0.10' stroke='white' stroke-opacity='0.35' stroke-width='2'/><g fill='white' fill-opacity='0.55'><circle cx='140' cy='120' r='4'/><circle cx='280' cy='120' r='4'/><circle cx='420' cy='120' r='4'/><circle cx='430' cy='40' r='4'/></g></svg>"),
+    linear-gradient(135deg, #0b2a6f 0%, #1565c0 55%, #00acc1 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: right center, center;
+  background-size: auto 100%, cover;
+  border-radius: 18px;
+  padding: 1.7rem 1.9rem;
+  margin-bottom: 1.3rem;
+  box-shadow: 0 8px 24px rgba(11, 61, 145, 0.35);
+  animation: aparece 0.5s ease-out;
+}
+@media (max-width: 640px) {
+  .hero { background-size: auto 45%, cover; background-position: right bottom, center; padding: 1.3rem 1.3rem; }
+}
+.hero, .hero * { color: #ffffff !important; }
+.hero-tag { font-size: 0.78rem; letter-spacing: 0.16em; font-weight: 600; opacity: 0.85; }
+.hero-title { font-size: clamp(2.1rem, 6vw, 3.2rem); font-weight: 800; line-height: 1.05; margin: 0.35rem 0 0.5rem 0; }
+.hero-sub { font-size: 1.02rem; max-width: 640px; opacity: 0.95; line-height: 1.45; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.chip {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  padding: 0.28rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.86rem;
+}
+
+/* ---------- Encabezado de cada módulo ---------- */
+.mod-banner {
+  display: flex; align-items: center; gap: 0.95rem;
+  padding: 0.95rem 1.15rem; margin: 0.2rem 0 1.1rem 0;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(30, 136, 229, 0.20), rgba(0, 172, 193, 0.07));
+  border: 1px solid rgba(30, 136, 229, 0.35);
+  border-left: 6px solid #1e88e5;
+  animation: aparece 0.4s ease-out;
+}
+.mod-icon { font-size: 2.1rem; line-height: 1; }
+.mod-title { font-size: 1.45rem; font-weight: 700; line-height: 1.2; }
+.mod-sub { opacity: 0.8; font-size: 0.93rem; margin-top: 0.2rem; }
+
+/* ---------- Tarjetas de resultados ---------- */
+[data-testid="stMetric"] {
+  background: rgba(30, 136, 229, 0.10);
+  border: 1px solid rgba(30, 136, 229, 0.30);
+  border-left: 5px solid #1e88e5;
+  border-radius: 12px;
+  padding: 0.7rem 0.95rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+[data-testid="stMetricLabel"] { opacity: 0.85; }
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] > div {
+  font-weight: 700; white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
+}
+
+/* ---------- Títulos de sección, alertas, tablas, gráficas ---------- */
+div[data-testid="stHeading"] h3 { border-bottom: 2px solid rgba(30, 136, 229, 0.35); padding-bottom: 0.3rem; }
+[data-testid="stAlert"] { border-radius: 12px; }
+[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 1px solid rgba(30, 136, 229, 0.25); }
+[data-testid="stImage"] img { border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.25); }
+[data-testid="stExpander"], [data-testid="stExpander"] details {
+  border-radius: 12px; border-color: rgba(30, 136, 229, 0.35);
+}
+
+/* ---------- Botones ---------- */
+button[kind="primary"], button[data-testid="stBaseButton-primary"] {
+  background: linear-gradient(135deg, #1565c0, #00acc1) !important;
+  border: none !important; color: #ffffff !important;
+  border-radius: 10px !important; font-weight: 600 !important;
+  box-shadow: 0 3px 10px rgba(21, 101, 192, 0.35);
+}
+button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover { filter: brightness(1.1); }
+button[kind="secondary"], button[data-testid="stBaseButton-secondary"] {
+  border-radius: 10px !important; border-color: rgba(30, 136, 229, 0.55) !important;
+}
+
+/* ---------- Menú lateral ---------- */
+[data-testid="stSidebar"] { border-right: 1px solid rgba(30, 136, 229, 0.25); }
+.side-brand {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 0.95rem; margin-bottom: 0.9rem; border-radius: 14px;
+  background: linear-gradient(135deg, #0b2a6f, #1565c0 60%, #00acc1);
+  box-shadow: 0 4px 14px rgba(11, 61, 145, 0.35);
+}
+.side-brand, .side-brand * { color: #ffffff !important; }
+.side-logo { font-size: 1.9rem; line-height: 1; }
+.side-name { font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
+.side-tag { font-size: 0.78rem; opacity: 0.9; }
+.side-nota {
+  font-size: 0.82rem; opacity: 0.85; margin-top: 1rem; padding: 0.65rem 0.85rem;
+  border-radius: 10px; background: rgba(30, 136, 229, 0.10);
+  border: 1px solid rgba(30, 136, 229, 0.25);
+}
+
+/* ---------- Pie de página ---------- */
+.pie {
+  text-align: center; opacity: 0.65; font-size: 0.82rem;
+  margin-top: 2.6rem; padding-top: 0.95rem; border-top: 1px solid rgba(128, 128, 128, 0.3);
+}
+</style>
+"""
+
+
+def aplicar_estilo():
+    """Inyecta el CSS de arriba en la página."""
+    st.markdown(ESTILO, unsafe_allow_html=True)
+
+
+def encabezado_principal():
+    """Banner de bienvenida con el nombre de la app, los integrantes, la materia y la sección."""
+    st.markdown(
+        '<div class="hero">'
+        f'<div class="hero-tag">⚛️ {html.escape(ASIGNATURA.upper())} · ESTADÍSTICA APLICADA</div>'
+        f'<div class="hero-title">{html.escape(NOMBRE_APP)}</div>'
+        f'<div class="hero-sub">{html.escape(SUBTITULO)}</div>'
+        '<div class="chips">'
+        f'<span class="chip">👥 {html.escape(INTEGRANTES)}</span>'
+        f'<span class="chip">📘 {html.escape(ASIGNATURA)}</span>'
+        f'<span class="chip">🎓 Sección {html.escape(SECCION)}</span>'
+        "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def banner_modulo(icono, titulo, texto=""):
+    """Encabezado con icono para cada módulo."""
+    sub = f'<div class="mod-sub">{html.escape(texto)}</div>' if texto else ""
+    st.markdown(
+        '<div class="mod-banner">'
+        f'<div class="mod-icon">{icono}</div>'
+        f'<div><div class="mod-title">{html.escape(titulo)}</div>{sub}</div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def pie_de_pagina():
+    st.markdown(
+        f'<div class="pie">{html.escape(NOMBRE_APP)} · Proyecto académico de {html.escape(ASIGNATURA)} '
+        f"· Sección {html.escape(SECCION)} · {html.escape(INTEGRANTES)}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------
@@ -87,7 +269,7 @@ def pedir_datos(clave, ejemplo, con_boton=True):
 # MÓDULO 1: ESTADÍSTICA DESCRIPTIVA + DATOS EXPERIMENTALES
 # ---------------------------------------------------------------
 def modulo_descriptiva():
-    st.header("Estadística descriptiva")
+    banner_modulo("📈", "Estadística descriptiva", "Media, mediana, moda, rango y desviaciones, con el procedimiento paso a paso.")
     st.write(
         "Escribe tus mediciones separadas por comas, espacios o saltos de línea. "
         "Usa punto como separador decimal (por ejemplo 2.1)."
@@ -214,7 +396,7 @@ def modulo_descriptiva():
 # MÓDULO 2: TABLAS DE FRECUENCIAS Y GRÁFICAS
 # ---------------------------------------------------------------
 def modulo_tablas_graficas():
-    st.header("Tablas de frecuencias y gráficas")
+    banner_modulo("📊", "Tablas de frecuencias y gráficas", "Tabla de frecuencias, histograma y diagrama de dispersión de tus mediciones.")
     st.write(
         "Escribe tus mediciones (usa varias, por ejemplo 10 o más, para que el "
         "histograma tenga sentido). Esta sección se actualiza sola al cambiar los datos."
@@ -602,7 +784,7 @@ def _distribucion_normal():
 
 
 def modulo_probabilidad():
-    st.header("Probabilidad y distribución normal")
+    banner_modulo("🎲", "Probabilidad y distribución normal", "Probabilidad clásica, dos eventos y la curva normal con el área sombreada.")
     tema = st.radio(
         "¿Qué quieres resolver?",
         ["Probabilidad clásica", "Dos eventos", "Distribución normal"],
@@ -635,7 +817,7 @@ def fuerza_correlacion(r):
 
 
 def modulo_regresion():
-    st.header("Correlación y regresión lineal")
+    banner_modulo("📉", "Correlación y regresión lineal", "Relación entre dos variables: coeficiente r, recta de ajuste e incertidumbre.")
     st.write(
         "Escribe dos series de mediciones de la misma longitud: **x** (la variable que "
         "controlas o varías) e **y** (la que mides). Se actualiza sola al cambiar los datos."
@@ -1291,7 +1473,7 @@ def seccion_practica():
 
 
 def modulo_ejercicios():
-    st.header("Ejercicios y práctica")
+    banner_modulo("📝", "Ejercicios y práctica", "10 ejercicios resueltos y un generador de prácticas con retroalimentación.")
     parte = st.radio(
         "¿Qué quieres hacer?",
         ["Ejercicios resueltos (10)", "Practicar con retroalimentación"],
@@ -1307,29 +1489,32 @@ def modulo_ejercicios():
 # ---------------------------------------------------------------
 # PÁGINA PRINCIPAL
 # ---------------------------------------------------------------
-st.title(NOMBRE_APP)
-st.caption(f"Integrantes: {INTEGRANTES}")
-st.caption(f"Asignatura: {ASIGNATURA} | Sección: {SECCION}")
+# Menú: texto que se ve  ->  función que se ejecuta
+MODULOS = {
+    "📈 Estadística descriptiva": modulo_descriptiva,
+    "📊 Tablas y gráficas": modulo_tablas_graficas,
+    "🎲 Probabilidad y normal": modulo_probabilidad,
+    "📉 Correlación y regresión": modulo_regresion,
+    "📝 Ejercicios y práctica": modulo_ejercicios,
+}
 
-st.sidebar.title("Módulos")
-opcion = st.sidebar.radio(
-    "Elige un módulo",
-    [
-        "Estadística descriptiva",
-        "Tablas y gráficas",
-        "Probabilidad y normal",
-        "Correlación y regresión",
-        "Ejercicios y práctica",
-    ],
+aplicar_estilo()
+
+st.sidebar.markdown(
+    '<div class="side-brand"><div class="side-logo">⚛️</div><div>'
+    f'<div class="side-name">{html.escape(NOMBRE_APP)}</div>'
+    f'<div class="side-tag">{html.escape(ASIGNATURA)} · Sección {html.escape(SECCION)}</div>'
+    "</div></div>",
+    unsafe_allow_html=True,
+)
+st.sidebar.caption("MÓDULOS")
+opcion = st.sidebar.radio("Elige un módulo", list(MODULOS), label_visibility="collapsed")
+st.sidebar.markdown(
+    '<div class="side-nota">💡 Cada módulo trae un ejemplo precargado con mediciones de '
+    "laboratorio. Cámbialo por tus propios datos cuando quieras.</div>",
+    unsafe_allow_html=True,
 )
 
-if opcion == "Estadística descriptiva":
-    modulo_descriptiva()
-elif opcion == "Tablas y gráficas":
-    modulo_tablas_graficas()
-elif opcion == "Probabilidad y normal":
-    modulo_probabilidad()
-elif opcion == "Correlación y regresión":
-    modulo_regresion()
-elif opcion == "Ejercicios y práctica":
-    modulo_ejercicios()
+encabezado_principal()
+MODULOS[opcion]()
+pie_de_pagina()
